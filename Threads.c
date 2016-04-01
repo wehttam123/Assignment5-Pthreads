@@ -45,22 +45,50 @@ void queue_add(  prod_cons_queue *q,  int element){
 
   if (q->remaining_elements > 0){
     q->tail = q->remaining_elements;
+    q->element[q->remaining_elements] = element;
     q->remaining_elements++;
   } else {
     q->head = 0;
     q->tail = 0;
+    q->element[q->remaining_elements] = element;
     q->remaining_elements++;
   }
 
   printf("add: ");
-  printf("%i\n",element);
+  printf("%i\n",q->element[q->remaining_elements-1]);
   printf("remaining_elements: ");
   printf("%i\n",q->remaining_elements);
 
 };
 
 int queue_remove(  prod_cons_queue *q ){
-  return 0;
+  printf("remove: ");
+  printf("%i\n",q->tail);
+
+  int elem;
+
+  if (q->remaining_elements > 1){
+    elem = q->element[q->remaining_elements-1];
+    q->remaining_elements--;
+    q->tail = q->remaining_elements;
+  } else if (q->remaining_elements == 1){
+    q->head = 0;
+    q->tail = 0;
+    q->remaining_elements = 0;
+    elem = -1;
+  } else {
+    q->head = -1;
+    q->tail = -1;
+    q->remaining_elements = 0;
+    elem = -1;
+  }
+
+  printf("remaining_elements: ");
+  printf("%i\n",q->remaining_elements);
+  printf("elem: ");
+  printf("%i\n",elem);
+
+  return elem;
 };
 
 void *Consumer(void *c_data)
@@ -70,8 +98,8 @@ void *Consumer(void *c_data)
    long tid = data->thread_id;
    struct queue *queue_ptr = data->queue_ptr;
 
-   //queue_remove(tid);
-   printf("Thread id:%ld\n", tid);
+   int id = queue_remove(queue_ptr);
+   printf("Thread id:%ld\n", id);
    pthread_exit(NULL);
 }
 
@@ -99,7 +127,7 @@ int main(int argc, char *argv[])
 
    queue_initialize(queue_ptr);
 
-   for(t=0;t<NUM_THREADS-1;t++){
+   for(t=0;t<NUM_THREADS;t++){
      printf("Producer thread %ld\n", t);
      thread_data_array[t].thread_id = t;
      thread_data_array[t].queue_ptr = queue_ptr;
