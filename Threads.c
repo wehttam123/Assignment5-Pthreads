@@ -35,6 +35,21 @@ void queue_add(  prod_cons_queue *q,  int element);
 int queue_remove(  prod_cons_queue *q );
 //the removed element is returned in adouble pointer “data”
 
+void queue_initialize( prod_cons_queue *q ){
+  q->head = -1;
+  q->tail = -1;
+  q->remaining_elements = 0;
+};
+
+void queue_add(  prod_cons_queue *q,  int element){
+  printf("add: ");
+  printf("%i\n",element);
+};
+
+int queue_remove(  prod_cons_queue *q ){
+  return 0;
+};
+
 void *Consumer(void *c_data)
 {
    struct thread_data *data;
@@ -54,7 +69,7 @@ void *Producer(void *p_data)
    long tid = data->thread_id;
    struct queue *queue_ptr = data->queue_ptr;
 
-   //queue_add(queue_ptr,tid);
+   queue_add(queue_ptr, tid);
    printf("Thread id:%ld\n", tid);
    pthread_exit(NULL);
 }
