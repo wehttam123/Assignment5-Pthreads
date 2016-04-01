@@ -1,5 +1,5 @@
 # Assignment5-Pthreads
 
-To compile: > gcc -pthreads Threads.c
+To compile: > gcc Threads.c -o <executable_name> -lpthread
 
-To run: > ./a.out
+To run: > ./<executable_name>
