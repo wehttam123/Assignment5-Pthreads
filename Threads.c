@@ -42,8 +42,21 @@ void queue_initialize( prod_cons_queue *q ){
 };
 
 void queue_add(  prod_cons_queue *q,  int element){
+
+  if (q->remaining_elements > 0){
+    q->tail = q->remaining_elements;
+    q->remaining_elements++;
+  } else {
+    q->head = 0;
+    q->tail = 0;
+    q->remaining_elements++;
+  }
+
   printf("add: ");
   printf("%i\n",element);
+  printf("remaining_elements: ");
+  printf("%i\n",q->remaining_elements);
+
 };
 
 int queue_remove(  prod_cons_queue *q ){
@@ -83,6 +96,8 @@ int main(int argc, char *argv[])
    long t;
 
    queue_ptr = &thread_queue;
+
+   queue_initialize(queue_ptr);
 
    for(t=0;t<NUM_THREADS-1;t++){
      printf("Producer thread %ld\n", t);
