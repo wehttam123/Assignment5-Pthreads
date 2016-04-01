@@ -98,8 +98,11 @@ void *Consumer(void *c_data)
    long tid = data->thread_id;
    struct queue *queue_ptr = data->queue_ptr;
 
+   /*loop start 100 times*/
    int id = queue_remove(queue_ptr);
    printf("Thread id:%ld\n", id);
+   /*loop end*/
+
    pthread_exit(NULL);
 }
 
@@ -110,7 +113,10 @@ void *Producer(void *p_data)
    long tid = data->thread_id;
    struct queue *queue_ptr = data->queue_ptr;
 
+   /*loop start 10 times*/
    queue_add(queue_ptr, tid);
+   /*loop end*/
+
    printf("Thread id:%ld\n", tid);
    pthread_exit(NULL);
 }
@@ -147,6 +153,5 @@ int main(int argc, char *argv[])
        exit(-1);
      }
 
-   /* Last thing that main() should do */
    pthread_exit(NULL);
 }
