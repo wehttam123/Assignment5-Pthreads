@@ -13,6 +13,13 @@
 #define NUM_THREADS	11
 #define MAX_QUEUE_SIZE 20
 
+struct thread_data{
+   int  thread_id;
+   struct queue *queue_ptr;
+};
+
+struct thread_data thread_data_array[NUM_THREADS];
+
 typedef struct queue{
 int element[MAX_QUEUE_SIZE];
 uint8_t  head;
@@ -28,21 +35,26 @@ void queue_add(  prod_cons_queue *q,  int element);
 int queue_remove(  prod_cons_queue *q );
 //the removed element is returned in adouble pointer “data”
 
-void *Consumer(void *threadid)
+void *Consumer(void *c_data)
 {
-   long tid;
-   tid = (long)threadid;
+   struct thread_data *data;
+   data = (struct thread_data *) c_data;
+   long tid = data->thread_id;
+   struct queue *queue_ptr = data->queue_ptr;
+
    //queue_remove(tid);
    printf("Thread id:%ld\n", tid);
    pthread_exit(NULL);
 }
 
-void *Producer(void *threadid)
+void *Producer(void *p_data)
 {
-   long tid;
-   tid = (long)threadid;
-   //queue_add(tid);
-   //printf("Hello World! It's me, thread #%ld!\n", tid);
+   struct thread_data *data;
+   data = (struct thread_data *) p_data;
+   long tid = data->thread_id;
+   struct queue *queue_ptr = data->queue_ptr;
+
+   //queue_add(queue_ptr,tid);
    printf("Thread id:%ld\n", tid);
    pthread_exit(NULL);
 }
@@ -50,13 +62,18 @@ void *Producer(void *threadid)
 int main(int argc, char *argv[])
 {
    pthread_t threads[NUM_THREADS];
+   struct queue thread_queue;
+   struct queue *queue_ptr;
    int thread_create;
    long t;
 
+   queue_ptr = &thread_queue;
+
    for(t=0;t<NUM_THREADS-1;t++){
-     //printf("In main: creating thread %ld\n", t);
      printf("Producer thread %ld\n", t);
-     thread_create = pthread_create(&threads[t], NULL, Producer, (void *)t);
+     thread_data_array[t].thread_id = t;
+     thread_data_array[t].queue_ptr = queue_ptr;
+     thread_create = pthread_create(&threads[t], NULL, Producer, (void *) &thread_data_array[t]);
      if (thread_create){
        printf("ERROR; return code from pthread_create() is %d\n", thread_create);
        exit(-1);
@@ -64,7 +81,9 @@ int main(int argc, char *argv[])
      }
 
      printf("Consumer thread %ld\n", t);
-     thread_create = pthread_create(&threads[t], NULL, Consumer, (void *)t);
+     thread_data_array[t].thread_id = t;
+     thread_data_array[t].queue_ptr = queue_ptr;
+     thread_create = pthread_create(&threads[t], NULL, Consumer, (void *) &thread_data_array[t]);
      if (thread_create){
        printf("ERROR; return code from pthread_create() is %d\n", thread_create);
        exit(-1);
