@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #define NUM_THREADS	11
-#define MAX_QUEUE_SIZE 20
+#define MAX_QUEUE_SIZE 200
 
 struct thread_data{
    int  thread_id;
@@ -22,6 +22,7 @@ struct thread_data thread_data_array[NUM_THREADS];
 
 typedef struct queue{
 int element[MAX_QUEUE_SIZE];
+pthread_mutex_t mutex;
 uint8_t  head;
 uint8_t  tail;
 uint8_t  remaining_elements; // #of elements in the queue
@@ -43,6 +44,7 @@ void queue_initialize( prod_cons_queue *q ){
 
 void queue_add(  prod_cons_queue *q,  int element){
 
+  pthread_mutex_lock (&(q->mutex));
   if (q->remaining_elements > 0){
     q->tail = q->remaining_elements;
     q->element[q->remaining_elements] = element;
@@ -53,18 +55,11 @@ void queue_add(  prod_cons_queue *q,  int element){
     q->element[q->remaining_elements] = element;
     q->remaining_elements++;
   }
-
-  printf("add: ");
-  printf("%i\n",q->element[q->remaining_elements-1]);
-  printf("remaining_elements: ");
-  printf("%i\n",q->remaining_elements);
-
+  pthread_mutex_unlock (&(q->mutex));
 };
 
 int queue_remove(  prod_cons_queue *q ){
-  printf("remove: ");
-  printf("%i\n",q->tail);
-
+   pthread_mutex_lock (&(q->mutex));
   int elem;
 
   if (q->remaining_elements > 1){
@@ -83,11 +78,7 @@ int queue_remove(  prod_cons_queue *q ){
     elem = -1;
   }
 
-  printf("remaining_elements: ");
-  printf("%i\n",q->remaining_elements);
-  printf("elem: ");
-  printf("%i\n",elem);
-
+  pthread_mutex_unlock (&(q->mutex));
   return elem;
 };
 
@@ -98,10 +89,10 @@ void *Consumer(void *c_data)
    long tid = data->thread_id;
    struct queue *queue_ptr = data->queue_ptr;
 
-   /*loop start 100 times*/
-   int id = queue_remove(queue_ptr);
-   printf("Thread id:%ld\n", id);
-   /*loop end*/
+   for(int i=0;i<100;i++){
+     int id = queue_remove(queue_ptr);
+     printf("Thread id:%ld\n", id);
+   }
 
    pthread_exit(NULL);
 }
@@ -112,12 +103,10 @@ void *Producer(void *p_data)
    data = (struct thread_data *) p_data;
    long tid = data->thread_id;
    struct queue *queue_ptr = data->queue_ptr;
+   for(int i=0;i<10;i++){
+     queue_add(queue_ptr, tid);
+   }
 
-   /*loop start 10 times*/
-   queue_add(queue_ptr, tid);
-   /*loop end*/
-
-   printf("Thread id:%ld\n", tid);
    pthread_exit(NULL);
 }
 
@@ -133,8 +122,9 @@ int main(int argc, char *argv[])
 
    queue_initialize(queue_ptr);
 
+   pthread_mutex_init(&(queue_ptr->mutex), NULL);
+
    for(t=0;t<NUM_THREADS;t++){
-     printf("Producer thread %ld\n", t);
      thread_data_array[t].thread_id = t;
      thread_data_array[t].queue_ptr = queue_ptr;
      thread_create = pthread_create(&threads[t], NULL, Producer, (void *) &thread_data_array[t]);
@@ -144,7 +134,6 @@ int main(int argc, char *argv[])
        }
      }
 
-     printf("Consumer thread %ld\n", t);
      thread_data_array[t].thread_id = t;
      thread_data_array[t].queue_ptr = queue_ptr;
      thread_create = pthread_create(&threads[t], NULL, Consumer, (void *) &thread_data_array[t]);
@@ -153,5 +142,6 @@ int main(int argc, char *argv[])
        exit(-1);
      }
 
-   pthread_exit(NULL);
+     pthread_mutex_destroy(&(queue_ptr->mutex));
+     pthread_exit(NULL);
 }
