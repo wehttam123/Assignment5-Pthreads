@@ -63,9 +63,10 @@ int queue_remove(  prod_cons_queue *q ){
   int elem;
 
   if (q->remaining_elements > 1){
-    elem = q->element[q->remaining_elements-1];
+    elem = q->element[q->head];
     q->remaining_elements--;
-    q->tail = q->remaining_elements;
+    q->head = q->head+1;
+    //elem = q->element[q->head];
   } else if (q->remaining_elements == 1){
     q->head = 0;
     q->tail = 0;
