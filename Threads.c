@@ -11,10 +11,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #define NUM_THREADS	11
-#define MAX_QUEUE_SIZE 200
+#define MAX_QUEUE_SIZE 100
 
 struct thread_data{
    int  thread_id;
+   int  thread_prio;
    struct queue *queue_ptr;
 };
 
@@ -23,6 +24,8 @@ struct thread_data thread_data_array[NUM_THREADS];
 typedef struct queue{
 int element[MAX_QUEUE_SIZE];
 pthread_mutex_t mutex;
+pthread_cond_t threshold;
+int curr_prio;
 uint8_t  head;
 uint8_t  tail;
 uint8_t  remaining_elements; // #of elements in the queue
@@ -40,6 +43,7 @@ void queue_initialize( prod_cons_queue *q ){
   q->head = -1;
   q->tail = -1;
   q->remaining_elements = 0;
+  q->curr_prio = 0;
 };
 
 void queue_add(  prod_cons_queue *q,  int element){
@@ -91,6 +95,11 @@ void *Consumer(void *c_data)
    struct queue *queue_ptr = data->queue_ptr;
 
    for(int i=0;i<100;i++){
+     if (queue_ptr->remaining_elements == 0) {
+       printf("Waiting!");
+       pthread_cond_wait(&(queue_ptr->threshold), &(queue_ptr->mutex));
+     }
+
      int id = queue_remove(queue_ptr);
      printf("Thread id:%ld\n", id);
    }
@@ -103,9 +112,14 @@ void *Producer(void *p_data)
    struct thread_data *data;
    data = (struct thread_data *) p_data;
    long tid = data->thread_id;
+   int tprio = data->thread_prio;
    struct queue *queue_ptr = data->queue_ptr;
    for(int i=0;i<10;i++){
-     queue_add(queue_ptr, tid);
+     if (tprio <= (queue_ptr->curr_prio)) {
+       queue_add(queue_ptr, tid);
+       pthread_cond_signal(&(queue_ptr->threshold));
+   }
+   (queue_ptr->curr_prio) = tprio + 1;
    }
 
    pthread_exit(NULL);
@@ -124,9 +138,11 @@ int main(int argc, char *argv[])
    queue_initialize(queue_ptr);
 
    pthread_mutex_init(&(queue_ptr->mutex), NULL);
+   pthread_cond_init (&(queue_ptr->threshold), NULL);
 
    for(t=0;t<NUM_THREADS;t++){
      thread_data_array[t].thread_id = t;
+     thread_data_array[t].thread_prio = t;
      thread_data_array[t].queue_ptr = queue_ptr;
      thread_create = pthread_create(&threads[t], NULL, Producer, (void *) &thread_data_array[t]);
      if (thread_create){
@@ -144,5 +160,6 @@ int main(int argc, char *argv[])
      }
 
      pthread_mutex_destroy(&(queue_ptr->mutex));
+     pthread_cond_destroy(&(queue_ptr->threshold));
      pthread_exit(NULL);
 }
