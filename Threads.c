@@ -47,11 +47,10 @@ void queue_initialize( prod_cons_queue *q ){
 };
 
 void queue_add(  prod_cons_queue *q,  int element){
-
   pthread_mutex_lock (&(q->mutex));
+  //printf("adding!\n");
   if (q->remaining_elements > 0){
-    q->tail = q->remaining_elements;
-    q->element[q->remaining_elements] = element;
+    q->element[q->head + q->remaining_elements] = element;
     q->remaining_elements++;
   } else {
     q->head = 0;
@@ -59,21 +58,27 @@ void queue_add(  prod_cons_queue *q,  int element){
     q->element[q->remaining_elements] = element;
     q->remaining_elements++;
   }
+  // printf("===\n");
+  // for (int k = q->head; k < (q->remaining_elements + q->head); k++){
+  //   int ele = q->element[k];
+  //   printf("%d", ele);
+  // }
+  // printf("\n");
+  // printf("====\n");
   pthread_mutex_unlock (&(q->mutex));
 };
 
 int queue_remove(  prod_cons_queue *q ){
-   pthread_mutex_lock (&(q->mutex));
+  pthread_mutex_lock (&(q->mutex));
   int elem;
+  //printf("removing!\n");
 
   if (q->remaining_elements > 1){
     elem = q->element[q->head];
-    if (elem > 100){
-      printf("uhh...\n");
-    }
     q->remaining_elements--;
+    // printf("%d\n", q->head);
     q->head = q->head + 1;
-
+    // printf("%d\n", q->head);
   } else if (q->remaining_elements == 1){
     printf("removing from queue size 1\n");
     elem = q->element[q->head];
@@ -87,6 +92,13 @@ int queue_remove(  prod_cons_queue *q ){
     q->remaining_elements = 0;
     elem = -1;
   }
+  // printf("===\n");
+  // for (int k = q->head; k < (q->remaining_elements + q->head); k++){
+  //   int ele = q->element[k];
+  //   printf("%d", ele);
+  // }
+  // printf("\n");
+  // printf("===\n");
 
   pthread_mutex_unlock (&(q->mutex));
   return elem;
@@ -100,12 +112,16 @@ void *Consumer(void *c_data)
    struct queue *queue_ptr = data->queue_ptr;
 
    for(int i=0;i<100;i++){
-     if (queue_ptr->remaining_elements == 0) { // Block the consumer if the queue is empty
-       pthread_cond_wait(&(queue_ptr->threshold), &(queue_ptr->mutex));
-     }
+     //pthread_mutex_lock (&(queue_ptr->mutex));
+    //  while(queue_ptr->remaining_elements == 0) { // Block the consumer if the queue is empty
+    //    //pthread_cond_wait(&(queue_ptr->threshold), &(queue_ptr->mutex));
+    //  }
+     //pthread_mutex_unlock (&(queue_ptr->mutex));
      //if (i == 99){ printf("we made it fam\n"); }
      int id = queue_remove(queue_ptr);
      printf("Thread id:%ld\n", id);
+
+     //sleep(1);
    }
 
    pthread_exit(NULL);
@@ -119,13 +135,15 @@ void *Producer(void *p_data)
    int tprio = data->thread_prio;
    struct queue *queue_ptr = data->queue_ptr;
    for(int j=0;j<10;j++){
+     //pthread_mutex_lock (&(queue_ptr->mutex));
      //printf("%ld", tid);
      if (queue_ptr->remaining_elements == MAX_QUEUE_SIZE){ // Block the producer if the queue if full
        //pthread_cond_wait(&(queue_ptr->threshold), &(queue_ptr->mutex));
       }
      queue_add(queue_ptr, tid);
-     pthread_cond_signal(&(queue_ptr->threshold));
-     //printf("added sumtin \n");
+     //pthread_cond_signal(&(queue_ptr->threshold));
+     //pthread_mutex_unlock (&(queue_ptr->mutex));
+     //sleep(1);
    }
   // (queue_ptr->curr_prio) = tprio + 1;
 
@@ -158,7 +176,7 @@ int main(int argc, char *argv[])
        }
      }
      t++; //
-     printf("got here!");
+     printf("got here!\n");
      thread_data_array[t].thread_id = t;
      thread_data_array[t].queue_ptr = queue_ptr;
      thread_create = pthread_create(&threads[t], NULL, Consumer, (void *) &thread_data_array[t]);
@@ -166,6 +184,10 @@ int main(int argc, char *argv[])
        printf("ERROR; return code from pthread_create() is %d\n", thread_create);
        exit(-1);
      }
+
+    // for (int i=0; i<NUM_THREADS; i++) {
+    //   pthread_join(threads[i], NULL);
+    // }
 
      pthread_mutex_destroy(&(queue_ptr->mutex));
      pthread_cond_destroy(&(queue_ptr->threshold));
