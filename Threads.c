@@ -68,15 +68,20 @@ int queue_remove(  prod_cons_queue *q ){
 
   if (q->remaining_elements > 1){
     elem = q->element[q->head];
+    if (elem > 100){
+      printf("uhh...\n");
+    }
     q->remaining_elements--;
-    q->head = q->head+1;
-    //elem = q->element[q->head];
+    q->head = q->head + 1;
+
   } else if (q->remaining_elements == 1){
-    q->head = 0;
-    q->tail = 0;
+    printf("removing from queue size 1\n");
+    elem = q->element[q->head];
+    q->head = -1;
+    q->tail = -1;
     q->remaining_elements = 0;
-    elem = -1;
   } else {
+    printf("removing from empty queue\n");
     q->head = -1;
     q->tail = -1;
     q->remaining_elements = 0;
@@ -95,11 +100,10 @@ void *Consumer(void *c_data)
    struct queue *queue_ptr = data->queue_ptr;
 
    for(int i=0;i<100;i++){
-     if (queue_ptr->remaining_elements == 0) {
-       printf("Waiting!");
+     if (queue_ptr->remaining_elements == 0) { // Block the consumer if the queue is empty
        pthread_cond_wait(&(queue_ptr->threshold), &(queue_ptr->mutex));
      }
-
+     //if (i == 99){ printf("we made it fam\n"); }
      int id = queue_remove(queue_ptr);
      printf("Thread id:%ld\n", id);
    }
@@ -114,13 +118,16 @@ void *Producer(void *p_data)
    long tid = data->thread_id;
    int tprio = data->thread_prio;
    struct queue *queue_ptr = data->queue_ptr;
-   for(int i=0;i<10;i++){
-     if (tprio <= (queue_ptr->curr_prio)) {
-       queue_add(queue_ptr, tid);
-       pthread_cond_signal(&(queue_ptr->threshold));
+   for(int j=0;j<10;j++){
+     //printf("%ld", tid);
+     if (queue_ptr->remaining_elements == MAX_QUEUE_SIZE){ // Block the producer if the queue if full
+       //pthread_cond_wait(&(queue_ptr->threshold), &(queue_ptr->mutex));
+      }
+     queue_add(queue_ptr, tid);
+     pthread_cond_signal(&(queue_ptr->threshold));
+     //printf("added sumtin \n");
    }
-   (queue_ptr->curr_prio) = tprio + 1;
-   }
+  // (queue_ptr->curr_prio) = tprio + 1;
 
    pthread_exit(NULL);
 }
@@ -140,9 +147,9 @@ int main(int argc, char *argv[])
    pthread_mutex_init(&(queue_ptr->mutex), NULL);
    pthread_cond_init (&(queue_ptr->threshold), NULL);
 
-   for(t=0;t<NUM_THREADS;t++){
+   for(t = 0; t < (NUM_THREADS - 1); t++){
      thread_data_array[t].thread_id = t;
-     thread_data_array[t].thread_prio = t;
+     thread_data_array[t].thread_prio = 0;
      thread_data_array[t].queue_ptr = queue_ptr;
      thread_create = pthread_create(&threads[t], NULL, Producer, (void *) &thread_data_array[t]);
      if (thread_create){
@@ -150,7 +157,8 @@ int main(int argc, char *argv[])
        exit(-1);
        }
      }
-
+     t++; //
+     printf("got here!");
      thread_data_array[t].thread_id = t;
      thread_data_array[t].queue_ptr = queue_ptr;
      thread_create = pthread_create(&threads[t], NULL, Consumer, (void *) &thread_data_array[t]);
