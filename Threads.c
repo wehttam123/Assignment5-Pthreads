@@ -161,8 +161,6 @@ int main(int argc, char *argv[])
      thread_create = pthread_create(&threads[t], &attr, Producer, (void *) &thread_data_array[t]);
    }
 
-   printf("....");
-   printf("%d", t);
    t++;
    // Create 1 consumer //
    thread_data_array[t].thread_id = t;
