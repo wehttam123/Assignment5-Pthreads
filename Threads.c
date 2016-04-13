@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #define NUM_THREADS	11
 #define MAX_QUEUE_SIZE 20
 
@@ -23,8 +24,8 @@ uint8_t  head;
 uint8_t  remaining_elements; // #of elements in the queue
 pthread_mutex_t mutex;
 pthread_cond_t cond;
-//bool is_blocked[10];
-//bool all_free;
+bool blocked[10];
+int num_blocked_threads;
 // any more variables that you need can be added
 }prod_cons_queue;
 
@@ -39,32 +40,18 @@ void queue_initialize( prod_cons_queue *q ){
   q->head = 0;
   q->remaining_elements = 0;
   q->curr_prio = 0;
-  // q->all_free = true;
-  // for (int i=0; i < 10; i++){
-  //   q->is_blocked[i] = false;
-  // }
+  for (int i=0; i < 10; i++){
+    q->blocked[i] = false;
+  }
+  q->num_blocked_threads = 0;
 };
 
 
 // Add an element to the tail of the queue //
 void queue_add(  prod_cons_queue *q,  int element){
   pthread_mutex_lock (&(q->mutex));
-  //
-  // if(q->blocked[] = true){ // Threads with higher priority add items to the queue first
-  //        queue_add(queue_ptr, tid);
-  //        signal()
-  //      } else if (queue_ptr->all_free  = false)  {
-  //        wait()
-  //        queue_add(queue_ptr, tid);
-  //      }
-  //      else{
-  //        queue_add(queue_ptr, tid);
-  //      }
-  //printf("Adding!\n");
 
    while (q->remaining_elements == MAX_QUEUE_SIZE) { // Block the producer if the queue is full
-  //   q->blocked = true;
-  //   q->all_free = false;
      pthread_cond_wait(&(q->cond), &(q->mutex));
     }
 
@@ -81,7 +68,7 @@ void queue_add(  prod_cons_queue *q,  int element){
    if(q->remaining_elements != 0){  // Signal the Consumer after the queue is no longer empty
      pthread_cond_signal(&(q->cond));
    }
-   //printf("done adding\n");
+
   pthread_mutex_unlock (&(q->mutex));
 }
 
@@ -92,7 +79,6 @@ int queue_remove(  prod_cons_queue *q ){
   //printf("Removing!\n");
 
   while(q->remaining_elements == 0) { // Block the consumer if the queue is empty
-    //printf("Cosn waiting!\n");
     pthread_cond_wait(&(q->cond), &(q->mutex));
   }
 
@@ -153,6 +139,7 @@ void *Consumer(void *c_data)
 
 void *Producer(void *p_data)
 {
+
    struct thread_data *data;
    data = (struct thread_data *) p_data;
    long tid = data->thread_id;
@@ -160,12 +147,37 @@ void *Producer(void *p_data)
    struct queue *queue_ptr = data->queue_ptr;
    // Produce 10 elements before exiting //
    for(int j=0;j<10;j++){
-     //pthread_mutex_lock (&mutex);
+      if (queue_ptr->blocked[tid] == false) {
 
-     queue_add(queue_ptr, tid);
+        while(queue_ptr->num_blocked_threads > 0);
+        if (queue_ptr->remaining_elements == MAX_QUEUE_SIZE) {
+          pthread_mutex_lock (&(queue_ptr->mutex));
+          queue_ptr->blocked[tid] = true;
+          queue_ptr->num_blocked_threads++;
+          pthread_mutex_unlock (&(queue_ptr->mutex));
+        }
+       queue_add(queue_ptr, tid);
+     }
 
+
+     else if (queue_ptr->blocked[tid] == true){
+       //printf("%d\n" + tid);
+        if (queue_ptr->remaining_elements == MAX_QUEUE_SIZE) {
+          pthread_mutex_lock (&(queue_ptr->mutex));
+          queue_ptr->blocked[tid] = true;
+          queue_ptr->num_blocked_threads--;
+          pthread_mutex_unlock (&(queue_ptr->mutex));
+        }
+        else{
+          pthread_mutex_lock (&(queue_ptr->mutex));
+          queue_ptr->num_blocked_threads--;
+          queue_ptr->blocked[tid] = false;
+          pthread_mutex_unlock (&(queue_ptr->mutex));
+        }
+       queue_add(queue_ptr, tid);
 
    }
+ }
 
    pthread_exit(NULL);
 }
