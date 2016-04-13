@@ -11,6 +11,7 @@
 struct thread_data{
    int  thread_id;
    int  thread_prio;
+   int  thread_blocked;
    struct queue *queue_ptr;
 };
 
@@ -19,11 +20,12 @@ struct thread_data thread_data_array[NUM_THREADS];
 typedef struct queue{
 int element[MAX_QUEUE_SIZE];
 int curr_prio;
+int blocked_threads;
 uint8_t  head;
 uint8_t  remaining_elements; // #of elements in the queue
 pthread_mutex_t mutex;
 pthread_cond_t cond;
-//bool is_blocked[10];
+int thread_blocked[10];
 //bool all_free;
 // any more variables that you need can be added
 }prod_cons_queue;
@@ -39,10 +41,11 @@ void queue_initialize( prod_cons_queue *q ){
   q->head = 0;
   q->remaining_elements = 0;
   q->curr_prio = 0;
+  q->blocked_threads = 0;
   // q->all_free = true;
-  // for (int i=0; i < 10; i++){
-  //   q->is_blocked[i] = false;
-  // }
+   for (int i=0; i < 10; i++){
+     q->thread_blocked[i] = 0;
+   }
 };
 
 
@@ -65,6 +68,8 @@ void queue_add(  prod_cons_queue *q,  int element){
    while (q->remaining_elements == MAX_QUEUE_SIZE) { // Block the producer if the queue is full
   //   q->blocked = true;
   //   q->all_free = false;
+		q->blocked_threads++;
+		q->thread_blocked[element] = 1;
      pthread_cond_wait(&(q->cond), &(q->mutex));
     }
 
@@ -121,6 +126,7 @@ int queue_remove(  prod_cons_queue *q ){
   }
 
   if (q->remaining_elements < MAX_QUEUE_SIZE) { // Signal the Producer after the queue is no longer full
+	q->blocked_threads--;
     pthread_cond_signal(&(q->cond));
   }
 
@@ -142,7 +148,9 @@ void *Consumer(void *c_data)
 
 
      int id = queue_remove(queue_ptr);
-
+	 if (queue_ptr->remaining_elements < MAX_QUEUE_SIZE) {
+		queue_ptr->thread_blocked[id] = 0;
+	 }
 
      //printf("Thread id:%ld\n", id); // Print the consumed element
      //pthread_mutex_unlock (&mutex);
@@ -162,8 +170,30 @@ void *Producer(void *p_data)
    for(int j=0;j<10;j++){
      //pthread_mutex_lock (&mutex);
 
-     queue_add(queue_ptr, tid);
+	 if (queue_ptr->blocked_threads < 1){
+		 //printf("no block");
+		 queue_add(queue_ptr, tid);
+		 //queue_ptr->blocked_threads = 0;
+		 
+	 }else if(/*data->thread_blocked == 1*/queue_ptr->thread_blocked[tid] == 1){
+		 //printf("blocked\n");
+		 queue_add(queue_ptr, tid);
+		 queue_ptr->blocked_threads--;
+		 queue_ptr->thread_blocked[tid] = 0;
+		 //data->thread_blocked = 0;
+	 } else {
+		 //printf("unblocked\n");
+		 queue_ptr->blocked_threads++;
+		 queue_ptr->thread_blocked[tid] = 1;
+		 //data->thread_blocked = 1;
+		 queue_add(queue_ptr, tid);
+		 queue_ptr->blocked_threads--;
+		 queue_ptr->thread_blocked[tid] = 0;
 
+		 //data->thread_blocked = 0;
+	 }
+	//printf("%ld\n", queue_ptr->blocked_threads);
+	//printf("done\n");
 
    }
 
